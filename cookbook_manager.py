@@ -26,6 +26,22 @@ def create_table(conn):
             instagram_worthy BOOLEAN,
             cover_color TEXT
         );"""
+        
+        sql_create_tags_table = """
+        CREATE TABLE IF NOT EXISTS tags (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE
+        );"""
+        
+        sql_create_cookbook_tags_table = """
+        CREATE TABLE IF NOT EXISTS cookbook_tags (
+            cookbook_id INTEGER NOT NULL,
+            tag_id INTEGER NOT NULL,
+            FOREIGN KEY (cookbook_id) REFERENCES cookbooks(id),
+            FOREIGN KEY (tag_id) REFERENCES tags(id),
+            PRIMARY KEY (cookbook_id, tag_id)
+        );"""
+
         # Calling the constructor for the cursor object to create a new cursor
         # That lets us work with the database
         cursor = conn.cursor()
@@ -67,6 +83,31 @@ def get_all_cookbooks(conn):
     except Error as e:
         print(f"Error retrieving collection: {e}")
         return []
+    
+def add_recipe_tags(conn, cookbook_id, tags):
+    """Add tags to a cookbook (e.g., 'gluten-free', 'plant-based', 'artisanal')"""
+    # Create a new tags table with many-to-many relationship
+    # Implement tag addition functionality
+    # Return success/failure status
+    try:
+        cursor = conn.cursor()
+        
+        for tag in tags:
+            # Insert tag if it doesn't already exist
+            cursor.execute("INSERT OR IGNORE INTO tags (name) VALUES (?)", (tag,))
+            
+            # Retrieve the tag ID
+            cursor.execute("SELECT id FROM tags WHERE name = ?", (tag,))
+            tag_id = cursor.fetchone()[0]
+            
+            # Associate cookbook with the tag
+            cursor.execute("INSERT OR IGNORE INTO cookbook_tags (cookbook_id, tag_id) VALUES (?, ?)", 
+                           (cookbook_id, tag_id))
+        
+        conn.commit()
+        print(f"Tags {tags} successfully added to cookbook ID {cookbook_id}")
+    except Error as e:
+        print(f"Error tagging cookbook: {e}")
 
 def main():
     # Establish connection to our artisanal database
