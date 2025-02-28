@@ -52,6 +52,24 @@ def create_table(conn):
 
 def insert_cookbook(conn, cookbook):
     """Add a new cookbook to your shelf )"""
+    # Adding validation to make sure that no entry is empty or wrong
+    title, author, year_published, aethsetic_rating, instagram_worthy, cover_color = cookbook
+
+    # Validation
+    if not title or not author:
+        print("Error: Title and author cannot be empty.")
+        return None
+    if not isinstance(year_published, int) or year_published < 0:
+        print("Error: Year must be a positive integer.")
+        return None
+    if not (1 <= aesthetic_rating <= 5):
+        print("Error: Aesthetic rating must be between 1 and 5.")
+        return None
+    if not isinstance(instagram_worthy, bool):
+        print("Error: Instagram-worthy must be either True or False.")
+        return None
+
+    
     sql = '''INSERT INTO cookbooks(title, author, year_published, aesthetic_rating, instagram_worthy, cover_color)
              VALUES(?,?,?,?,?,?)'''
     try:
@@ -70,6 +88,11 @@ def get_all_cookbooks(conn):
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM cookbooks")
         books = cursor.fetchall()
+        # Validation
+        if not books:
+            print("No cookbooks found in the database.")
+            return []
+
         for book in books:
             print(f"ID: {book[0]}")
             print(f"Title: {book[1]}")
@@ -108,6 +131,48 @@ def add_recipe_tags(conn, cookbook_id, tags):
         print(f"Tags {tags} successfully added to cookbook ID {cookbook_id}")
     except Error as e:
         print(f"Error tagging cookbook: {e}")
+
+def rotate_seasonal_collection(conn, season):
+    """Update display recommendations based on season"""
+    seasonal_tags = {
+        "Winter": ["comfort food", "soups", "baking", "hearty"],
+        "Spring": ["fresh", "greens", "fermented", "light meals"],
+        "Summer": ["grilling", "salads", "cold drinks", "beach"],
+        "Autumn": ["pumpkin", "harvest", "spices", "warming foods"]
+    }
+    
+    if season not in seasonal_tags:
+        print(f"Season '{season}' is not recognized. Try Winter, Spring, Summer, or Autumn.")
+        return
+    
+    try:
+        cursor = conn.cursor()
+        
+        # Reset instagram_worthy for all books
+        cursor.execute("UPDATE cookbooks SET instagram_worthy = 0")
+        
+        # Find cookbooks that match the season’s tags
+        query = """
+            UPDATE cookbooks 
+            SET instagram_worthy = 1
+            WHERE id IN (
+                SELECT cookbook_id FROM cookbook_tags 
+                JOIN tags ON cookbook_tags.tag_id = tags.id
+                WHERE tags.name IN ({})
+            )
+        """.format(','.join('?' * len(seasonal_tags[season])))
+        
+        cursor.execute(query, seasonal_tags[season])
+        conn.commit()
+        #Validation
+        affected_rows = cursor.rowcount
+        if affected_rows == 0:
+            print(f"No cookbooks matched the seasonal tags for {season}.")
+        else:
+            print(f"Updated {affected_rows} cookbooks for {season}.")
+    
+    except Error as e:
+        print(f"Error updating seasonal collection: {e}")
 
 def main():
     # Establish connection to our artisanal database
